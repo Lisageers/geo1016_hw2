@@ -54,6 +54,90 @@ Matrix<double> to_Matrix(const mat &M) {
     return result;
 }
 
+vec3 find_centroid(const std::vector<vec3> &points)
+{
+    float maxx, maxy;
+    // initialise min like this bc otherwise init value is too small
+    float minx = points[0][0];
+    float miny = points[0][1];
+    // go through all points
+    for (int i=0;i < points.size(); i++)
+    {
+        // update min x if found
+        if (points[i][0] < minx)
+        {
+            minx = points[i][0];
+        }
+        // update max x if found
+        if (points[i][0] > maxx)
+        {
+            maxx = points[i][0];
+        }
+        // update max y if found
+        if (points[i][1] < miny)
+        {
+            miny = points[i][1];
+        }
+        // update min z if found
+        if (points[i][1] > maxy)
+        {
+            maxy = points[i][1];
+        }
+    }
+    // calculate centers in both directions
+    float x_center = ((maxx-minx)/2) + minx;
+    float y_center = ((maxy-miny)/2) + miny;
+    vec3 centroid = {x_center, y_center, 1};
+    return centroid;
+}
+
+float compute_scaling_factor(const std::vector<vec3> &points, vec3 centroid)
+{
+    float scaling_factor;
+    float total_distance = 0;
+    // add all distances
+    for (int i=0; i < points.size(); i++)
+    {
+        total_distance += norm(centroid-points[i]);
+    }
+    // calculate scaling factor sqrt(2)/mean distance
+    scaling_factor = sqrt(2) / (total_distance/points.size());
+    return scaling_factor;
+}
+
+const std::vector<vec3> normalising(const std::vector<vec3> &points, vec3 &centroid, float &scale)
+{
+    std::vector<vec3> norm_points;
+    vec3 new_point;
+    float x, y, z;
+    // calculate qi = pi*T and put in vector
+    for (int i=0; i < points.size(); i++)
+    {
+        x = scale*points[i][0] + centroid[0];
+        y = scale*points[i][1] + centroid[1];
+        z = 1;
+        new_point = {x, y, z};
+        norm_points.push_back(new_point);
+    }
+    return norm_points;
+}
+
+bool fundamental_matrix_estimation(const std::vector<vec3> &points_0, const std::vector<vec3> &points_1)
+{
+    // normalisation
+    Matrix<double> F(3, 3, 0.0);
+
+    // find centroids
+    vec3 centroid_p0 = find_centroid(points_0);
+    vec3 centroid_p1 = find_centroid(points_1);
+    // find scaling factor
+    float scale_p0 = compute_scaling_factor(points_0, centroid_p0); // or should i do for each dimension?
+    float scale_p1 = compute_scaling_factor(points_1, centroid_p1);
+    // compute normalised points
+    std::vector<vec3> normalised_p0 = normalising(points_0, centroid_p0, scale_p0);
+    std::vector<vec3> normalised_p1 = normalising(points_1, centroid_p1, scale_p1);
+    return true;
+}
 
 /**
  * TODO: Finish this function for reconstructing 3D geometry from corresponding image points.
@@ -172,7 +256,7 @@ bool Triangulation::triangulation(
     }
 
     // estimate the fundamental matrix F
-
+    fundamental_matrix_estimation(points_0, points_1);
 
     // TODO: Estimate relative pose of two views. This can be subdivided into
     //      - estimate the fundamental matrix F;
