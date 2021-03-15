@@ -122,10 +122,12 @@ const std::vector<vec3> normalising(const std::vector<vec3> &points, vec3 &centr
     return norm_points;
 }
 
-bool fundamental_matrix_estimation(const std::vector<vec3> &points_0, const std::vector<vec3> &points_1)
+Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, const std::vector<vec3> &points_1)
 {
     // normalisation
     Matrix<double> F(3, 3, 0.0);
+    Matrix<double> T_p0(3, 3, 0.0);
+    Matrix<double> T_p1(3, 3, 0.0);
 
     // find centroids
     vec3 centroid_p0 = find_centroid(points_0);
@@ -136,7 +138,49 @@ bool fundamental_matrix_estimation(const std::vector<vec3> &points_0, const std:
     // compute normalised points
     std::vector<vec3> normalised_p0 = normalising(points_0, centroid_p0, scale_p0);
     std::vector<vec3> normalised_p1 = normalising(points_1, centroid_p1, scale_p1);
-    return true;
+
+    // eight point algorithm
+    // create W
+    Matrix<double> W(points_0.size(), 9, 0.0);
+    float v0, v1, v2, v3, v4, v5, v6, v7;
+    for (int i=0; i < points_0.size(); i++)
+    {
+        v0 = points_0[i][0] * points_1[i][0];
+        v1 = points_0[i][1] * points_1[i][0];
+        v2 = points_1[i][0];
+        v3 = points_0[i][0] * points_1[i][1];
+        v4 = points_0[i][1] * points_1[i][1];
+        v5 = points_1[i][1];
+        v6 = points_0[i][0];
+        v7 = points_0[i][1];
+        W.set_row({v0, v1, v2, v3, v4, v5, v6, v7, 1}, i);
+    }
+
+    // solve with svd
+    Matrix<double> U(3, 3, 0.0);   // initialized with 0s
+    Matrix<double> S(3, 3, 0.0);   // initialized with 0s
+    Matrix<double> V(3, 3, 0.0);   // initialized with 0s
+    // Single Value Decomposition into U, S, and V
+    svd_decompose(F, U, S, V);
+    // make rank 2 approximation
+    S(2, 2) = 0;
+    std::cout << S << " s\n";
+    // calculate Fq
+    F = U * S * V;
+
+    // denormalise using F= T'^T * Fq * T
+    // construct T
+    T_p0.set_row({scale_p0, 0, centroid_p0[0]}, 0);
+    T_p0.set_row({0, scale_p0, centroid_p0[1]}, 1);
+    T_p0.set_row({0,0,1}, 1);
+    // construct T'
+    T_p1.set_row({scale_p1, 0, centroid_p1[0]}, 0);
+    T_p1.set_row({0, scale_p1, centroid_p1[1]}, 1);
+    T_p1.set_row({0,0,1}, 1);
+    // calculate F
+    F = transpose(T_p1) * F * T_p0;
+
+    return F;
 }
 
 /**
@@ -216,10 +260,10 @@ bool Triangulation::triangulation(
     cross_prod.normalize();
 
     /// a 3 by 3 matrix (all entries are intentionally NOT initialized for efficiency reasons)
-    mat3 F;
+//    mat3 F;
     /// ... here you compute or initialize F.
     /// compute the inverse of K
-    mat3 invF = inverse(F);
+//    mat3 invF = inverse(F);
 
     /// ----------- dynamic-size matrices
 
@@ -256,7 +300,7 @@ bool Triangulation::triangulation(
     }
 
     // estimate the fundamental matrix F
-    fundamental_matrix_estimation(points_0, points_1);
+    Matrix<double> F = fundamental_matrix_estimation(points_0, points_1);
 
     // TODO: Estimate relative pose of two views. This can be subdivided into
     //      - estimate the fundamental matrix F;
