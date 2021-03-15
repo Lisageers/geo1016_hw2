@@ -75,27 +75,6 @@ bool Triangulation::triangulation(
     ///       implementation, which also makes testing and debugging easier. You can put your other functions above
     ///       triangulation(), or feel free to put them in one or multiple separate files.
 
-    std::cout << "\nTODO: I am going to implement the triangulation() function in the following file:" << std::endl
-              << "\t    - triangulation_method.cpp\n\n";
-
-    std::cout << "[Liangliang]:\n"
-                 "\tFeel free to use any data structure and function offered by Easy3D, in particular the following two\n"
-                 "\tfiles for vectors and matrices:\n"
-                 "\t    - easy3d/core/mat.h  Fixed-size matrices and related functions.\n"
-                 "\t    - easy3d/core/vec.h  Fixed-size vectors and related functions.\n"
-                 "\tFor matrices with unknown sizes (e.g., when handling an unknown number of corresponding points\n"
-                 "\tstored in a file, where their sizes can only be known at run time), a dynamic-sized matrix data\n"
-                 "\tstructure is necessary. In this case, you can use the templated 'Matrix' class defined in\n"
-                 "\t    - Triangulation/matrix.h  Matrices of arbitrary dimensions and related functions.\n"
-                 "\tPlease refer to the corresponding header files for more details of these data structures.\n\n"
-                 "\tIf you choose to implement the non-linear method for triangulation (optional task). Please refer to\n"
-                 "\t'Tutorial_NonlinearLeastSquares/main.cpp' for an example and some explanations. \n\n"
-                 "\tIn your final submission, please\n"
-                 "\t    - delete ALL unrelated test or debug code and avoid unnecessary output.\n"
-                 "\t    - include all the source code (original code framework + your implementation).\n"
-                 "\t    - do NOT include the 'build' directory (which contains the intermediate files in a build step).\n"
-                 "\t    - make sure your code compiles and can reproduce your results without any modification.\n\n" << std::flush;
-
     /// Easy3D provides fixed-size matrix types, e.g., mat2 (2x2), mat3 (3x3), mat4 (4x4), mat34 (3x4).
     /// To use these matrices, their sizes should be known to you at the compile-time (i.e., when compiling your code).
     /// Once defined, their sizes can NOT be changed.
@@ -174,7 +153,26 @@ bool Triangulation::triangulation(
     //--------------------------------------------------------------------------------------------------------------
     // implementation starts ...
 
-    // TODO: check if the input is valid (always good because you never known how others will call your function).
+    // check if the input is valid
+    if (points_0.size() != points_1.size())
+    {
+        std::cout << "Input Validation FAIL: The input files are not the same size" << std::endl;
+        return false;
+    }
+    else if (points_0.size() < 8 or points_1.size() < 8)
+    {
+        // Less than 8 points
+        std::cout << "Input Validation FAIL: The input contains less than 8 points" << std::endl;
+        return false;
+    }
+    else
+    {
+        // Everything all right
+        std::cout << "Input Validation PASS." << std::endl;
+    }
+
+    // estimate the fundamental matrix F
+
 
     // TODO: Estimate relative pose of two views. This can be subdivided into
     //      - estimate the fundamental matrix F;
