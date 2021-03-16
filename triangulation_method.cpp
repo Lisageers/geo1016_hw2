@@ -125,7 +125,6 @@ const std::vector<vec3> normalising(const std::vector<vec3> &points, vec3 &centr
 Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, const std::vector<vec3> &points_1)
 {
     // normalisation
-    Matrix<double> F(3, 3, 0.0);
     Matrix<double> T_p0(3, 3, 0.0);
     Matrix<double> T_p1(3, 3, 0.0);
 
@@ -155,6 +154,17 @@ Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, 
         v7 = points_0[i][1];
         W.set_row({v0, v1, v2, v3, v4, v5, v6, v7, 1}, i);
     }
+    // calculate F
+    // solve with svd
+    Matrix<double> Uw(points_0.size(), points_0.size(), 0.0);   // initialized with 0s
+    Matrix<double> Sw(points_0.size(), 9, 0.0);   // initialized with 0s
+    Matrix<double> Vw(9, 9, 0.0);   // initialized with 0s
+    // Single Value Decomposition into U, S, and V
+    svd_decompose(W, Uw, Sw, Vw);
+    const auto F_vector = Vw.get_column(9 - 1);
+
+    // Reshape vector f to matrix F
+    Matrix<double> F(3, 3, F_vector.data());
 
     // solve with svd
     Matrix<double> U(3, 3, 0.0);   // initialized with 0s
@@ -164,9 +174,10 @@ Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, 
     svd_decompose(F, U, S, V);
     // make rank 2 approximation
     S(2, 2) = 0;
-    std::cout << S << " s\n";
+
     // calculate Fq
     F = U * S * V;
+    std::cout << F << "Fq\n\n";
 
     // denormalise using F= T'^T * Fq * T
     // construct T
@@ -179,7 +190,7 @@ Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, 
     T_p1.set_row({0,0,1}, 1);
     // calculate F
     F = transpose(T_p1) * F * T_p0;
-
+    std::cout << F << "F\n";
     return F;
 }
 
