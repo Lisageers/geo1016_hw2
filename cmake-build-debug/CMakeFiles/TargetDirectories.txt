@@ -1,3 +1,0 @@
-/Users/XeniaUnaMainelli/Desktop/Year 1/GEO1016 Photogrammetry & 3D Computer Vision/Assignment 2/my_1006_hw2/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/Users/XeniaUnaMainelli/Desktop/Year 1/GEO1016 Photogrammetry & 3D Computer Vision/Assignment 2/my_1006_hw2/cmake-build-debug/CMakeFiles/edit_cache.dir
-/Users/XeniaUnaMainelli/Desktop/Year 1/GEO1016 Photogrammetry & 3D Computer Vision/Assignment 2/my_1006_hw2/cmake-build-debug/CMakeFiles/my_1006_hw2.dir
