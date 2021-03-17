@@ -166,6 +166,8 @@ Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, 
     // Reshape vector f to matrix F
     Matrix<double> F(3, 3, F_vector.data());
 
+    std::cout << F << "F\n\n";
+
     // solve with svd
     Matrix<double> U(3, 3, 0.0);   // initialized with 0s
     Matrix<double> S(3, 3, 0.0);   // initialized with 0s
@@ -190,6 +192,7 @@ Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, 
     T_p1.set_row({0,0,1}, 1);
     // calculate F
     F = transpose(T_p1) * F * T_p0;
+    F(2, 2) = 1;
     std::cout << F << "F\n";
     return F;
 }
