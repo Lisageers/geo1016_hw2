@@ -54,129 +54,118 @@ Matrix<double> to_Matrix(const mat &M) {
     return result;
 }
 
-vec3 find_centroid(const std::vector<vec3> &points)
+vec2 find_centroid(const std::vector<vec3> &points)
 {
-    // initialise to first point
-    float maxx = points[0][0];
-    float maxy = points[0][1];
-    float minx = points[0][0];
-    float miny = points[0][1];
+    // initialise
+    float totalx = 0;
+    float totaly = 0;
+
     // go through all points
     for (int i=0;i < points.size(); i++)
     {
-        // update min x if found
-        if (points[i][0] < minx)
-        {
-            minx = points[i][0];
-        }
-        // update max x if found
-        if (points[i][0] > maxx)
-        {
-            maxx = points[i][0];
-        }
-        // update max y if found
-        if (points[i][1] < miny)
-        {
-            miny = points[i][1];
-        }
-        // update min z if found
-        if (points[i][1] > maxy)
-        {
-            maxy = points[i][1];
-        }
+        // add value of cartesian x and y to total
+        totalx += points[i][0] / points[i][2];
+        totaly += points[i][1] / points[i][2];
+
     }
-    // calculate centers in both directions
-    float x_center = ((maxx-minx)/2) + minx;
-    float y_center = ((maxy-miny)/2) + miny;
-    vec3 centroid = {x_center, y_center, 1};
+    // calculate mean in both dimensions
+    vec2 centroid(totalx/points.size(), totaly/points.size());
     return centroid;
 }
 
-vec2 compute_scaling_factor(const std::vector<vec3> &points, vec3 centroid)
+float compute_scaling_factor(const std::vector<vec3> &points, vec2 centroid)
 {
-    vec2 scaling_factor;
-    float total_distance_x = 0;
-    float total_distance_y = 0;
-    vec3 v;
+    float scaling_factor = 0;
+    float total_distance = 0;
     // add all distances
     for (int i=0; i < points.size(); i++)
     {
-        v = centroid-points[i];
-        total_distance_x += v[0];
-        total_distance_y += v[1];
+		// use cartesian coordinates
+        vec2 d2_point(points[i][0]/points[i][2], points[i][1]/points[i][2]);
+		total_distance += distance(centroid, d2_point);
+
     }
     // calculate scaling factor sqrt(2)/mean distance
-    float scaling_factor_x = sqrt(2) / (total_distance_x/points.size());
-    float scaling_factor_y = sqrt(2) / (total_distance_y/points.size());
-
-    scaling_factor = {scaling_factor_x, scaling_factor_y};
+    scaling_factor = sqrt(2) / (total_distance/points.size());
     return scaling_factor;
 }
 
 Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, const std::vector<vec3> &points_1)
 {
-    // normalisation
-    Matrix<double> T_p0(3, 3, 0.0);
-    Matrix<double> T_p1(3, 3, 0.0);
+    // initialise
+    Matrix<double> Transformation_p0(3, 3, 0.0);
+    Matrix<double> Transformation_p1(3, 3, 0.0);
+	Matrix<double> scaling_p0(3, 3, 0.0);
+	Matrix<double> scaling_p1(3, 3, 0.0);
 
     // find centroids
-    vec3 centroid_p0 = find_centroid(points_0);
-    vec3 centroid_p1 = find_centroid(points_1);
-    // find scaling factor
-    vec2 scale_p0 = compute_scaling_factor(points_0, centroid_p0); // or should i do for each dimension?
-    vec2 scale_p1 = compute_scaling_factor(points_1, centroid_p1);
+    vec2 centroid_p0 = find_centroid(points_0);
+    vec2 centroid_p1 = find_centroid(points_1);
+    // find scaling factors
+    float scale_p0 = compute_scaling_factor(points_0, centroid_p0);
+    float scale_p1 = compute_scaling_factor(points_1, centroid_p1);
 
-    // compute normalised points
-    // construct T
-    T_p0.set_row({scale_p0[0], 0, centroid_p0[0]}, 0);
-    T_p0.set_row({0, scale_p0[1], centroid_p0[1]}, 1);
-    T_p0.set_row({0,0,1}, 2);
+    // construct transformation matrix p0 and p1
+    Transformation_p0.set_row({1, 0, -centroid_p0[0]}, 0);
+    Transformation_p0.set_row({0, 1, -centroid_p0[1]}, 1);
+    Transformation_p0.set_row({0,0,1}, 2);
 
-    // construct T'
-    T_p1.set_row({scale_p1[0], 0, centroid_p1[0]}, 0);
-    T_p1.set_row({0, scale_p1[1], centroid_p1[1]}, 1);
-    T_p1.set_row({0,0,1}, 2);
-    mat3 T_p0_mat3 = to_mat3(T_p0);
-    mat3 T_p1_mat3 = to_mat3(T_p1);
-    // normalise
-    std::vector<vec3> normalised_p0;
-    std::vector<vec3> normalised_p1;
+    Transformation_p1.set_row({1, 0, -centroid_p1[0]}, 0);
+    Transformation_p1.set_row({0, 1, -centroid_p1[1]}, 1);
+    Transformation_p1.set_row({0,0,1}, 2);
+
+	// construct scaling matrix p0 and p1
+    scaling_p0.set_row({scale_p0, 0, 0}, 0);
+	scaling_p0.set_row({0, scale_p0, 0}, 1);
+	scaling_p0.set_row({0,0,1}, 2);
+
+	scaling_p1.set_row({scale_p1, 0, 0}, 0);
+	scaling_p1.set_row({0, scale_p1, 0}, 1);
+	scaling_p1.set_row({0,0,1}, 2);
+
+    // convert Mat to mat3
+	mat3 T_p0_mat3 = to_mat3(Transformation_p0);
+    mat3 T_p1_mat3 = to_mat3(Transformation_p1);
+	mat3 S_p0_mat3 = to_mat3(scaling_p0);
+	mat3 S_p1_mat3 = to_mat3(scaling_p1);
+
+	// normalise
+    std::vector<vec2> normalised_p0;
+    std::vector<vec2> normalised_p1;
     for (int i=0; i < points_0.size(); i++)
     {
-        normalised_p0.push_back(T_p0_mat3 * points_0[i]);
-        normalised_p1.push_back(T_p1_mat3 * points_1[i]);
+        // apply transformation
+        vec3 a = S_p0_mat3 * T_p0_mat3 * points_0[i];
+        vec3 b = S_p1_mat3 * T_p1_mat3 * points_1[i];
+        // convert to cartesian coordinates
+        normalised_p0.push_back(vec2(a.x/a.z, a.y/a.z));
+        normalised_p1.push_back(vec2(b.x/b.z, b.y/b.z));
     }
+
 
     // eight point algorithm
     // create W
     Matrix<double> W(normalised_p0.size(), 9, 0.0);
-    float v0, v1, v2, v3, v4, v5, v6, v7;
     for (int i=0; i < normalised_p0.size(); i++)
     {
-        v0 = normalised_p0[i][0] * normalised_p1[i][0];
-        v1 = normalised_p0[i][1] * normalised_p1[i][0];
-        v2 = normalised_p1[i][0];
-        v3 = normalised_p0[i][0] * normalised_p1[i][1];
-        v4 = normalised_p0[i][1] * normalised_p1[i][1];
-        v5 = normalised_p1[i][1];
-        v6 = normalised_p0[i][0];
-        v7 = normalised_p0[i][1];
-        W.set_row({v0, v1, v2, v3, v4, v5, v6, v7, 1}, i);
+        // get x and y of both points
+        double u0 = normalised_p0[i][0];
+        double v0 = normalised_p0[i][1];
+        double u1 = normalised_p1[i][0];
+        double v1 = normalised_p1[i][1];
+        // calculate W values
+        W.set_row({u0*u1, v0*u1, u1, u0*v1, v0*v1, v1, u0, v0, 1}, i);
     }
 
-
-    // calculate F
-    // solve with svd
+    // calculate F with svd
     Matrix<double> Uw(normalised_p0.size(), normalised_p0.size(), 0.0);   // initialized with 0s
     Matrix<double> Sw(normalised_p0.size(), 9, 0.0);   // initialized with 0s
     Matrix<double> Vw(9, 9, 0.0);   // initialized with 0s
     // Single Value Decomposition into U, S, and V
     svd_decompose(W, Uw, Sw, Vw);
     const auto F_vector = Vw.get_column(9-1);
-
     // Reshape vector f to matrix F
     Matrix<double> F(3, 3, F_vector.data());
-    std::cout << F << "F\n\n";
 
     // solve with svd
     Matrix<double> U(3, 3, 0.0);   // initialized with 0s
@@ -186,16 +175,22 @@ Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, 
     svd_decompose(F, U, S, V);
     // make rank 2 approximation
     S(2, 2) = 0;
-
     // calculate Fq
-    F = U * S * V;
-    std::cout << F << "Fq\n\n";
+    F = U * S * transpose(V);
 
     // denormalise using F= T'^T * Fq * T
     // calculate F
-    F = transpose(T_p1) * F * T_p0;
-    F(2, 2) = 1;
-    std::cout << F << "F\n";
+    F = transpose(scaling_p1 * Transformation_p1) * F * (scaling_p0 * Transformation_p0);
+    // make last element 1
+    float last_element_F = F(2, 2);
+    for (int i=0;i<3;i++)
+    {
+        F(i, 0) = F(i, 0) / last_element_F;
+        F(i, 1) = F(i, 1) / last_element_F;
+        F(i, 2) = F(i, 2) / last_element_F;
+    }
+
+    std::cout << "F:\n" << F << "\n";
     return F;
 }
 
