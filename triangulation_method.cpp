@@ -243,14 +243,14 @@ bool Triangulation::triangulation(
     std::vector<double> rows = {0, 1, 2, 3,
                                 4, 5, 6, 7,
                                 8, 9, 10, 11};
-    /// get the '2'-th row of M
-    const vec4 b = M.row(2);    // it assigns the requested row to a new vector b
+    /// get the '2'-nd row of M
+//    const vec4 b = M.row(2);    // it assigns the requested row to a new vector b
 
-    /// get the '1'-th column of M
+    /// get the '1'-st column of M
     const vec3 c = M.col(1);    // it assigns the requested column to a new vector c
 
     /// modify the element value at row 2 and column 1 (Note the 0-based indices)
-    M(2, 1) = b.x;
+//    M(2, 1) = b.x;
 
     /// apply transformation M on a 3D point p (p is a 3D vector)
     vec3 p(222, 444, 333);
@@ -318,7 +318,78 @@ bool Triangulation::triangulation(
     //      - compute the essential matrix E;
     //      - recover rotation R and t.
 
-    //Test 1001203012031023
+    // Essential matrix E = F * K * transpose(K). where K is the intrinsic matrix
+    // Define K matrix. Requires first defining skew?
+    // K = | fx skew  cx |
+    //     | 0   fy   cy |
+    //     | 0   0     1 |
+    // For now, I have ignored skew, and replaced it with 0, as it was not working out
+
+    //Define Extrinsic Matrix, E, as 3x3 matrix, initialised with 0's
+    // TODO: E should probably be mat3 instead of matrix double? Does this matter/affect anything?
+    Matrix<double> E(3, 3, 0.0);
+
+    std::vector<double> K_array = {fx, 0, cx, 0, fy, cy, 0, 0, 1}; // fx, fy, cx, cy are the focal lengths and principal points of both cameras
+    Matrix<double> K(3, 3, K_array.data());
+    std::cout << "Camera Matrix K: \n" << K << std::endl;
+
+    //Compute matrix K's inverse, invK
+    Matrix<double> invK(3, 3);
+    inverse(K, invK);
+
+//    Check to see if inverse is correct
+//    std::cout << "Test to see if inverse is correct, K * invK: \n" << K * invK << std::endl;
+
+    // Calculate E using Fundamental matrix, F, and camera matrix K and its inverse, K'
+    E = (F * K * transpose(K));
+    std::cout << "Essential Matrix E: \n" << E << std::endl;
+
+    // Calculating R and t based on performing an SVD, where E = U * Sigma * transpose(V)
+    // where U and V are orthogonal 3x3 matrices, and Sigma is a 3x3 diagonal matrix, diag(1,1,0)
+    // SVD of matrix E:
+    Matrix<double> U(E.rows(),E.rows(), 0.0);
+    Matrix<double> Sig(E.rows(),E.rows(), 0.0);
+    Matrix<double> V(E.rows(),E.rows(), 0.0);
+    svd_decompose(E, U, Sig, V);
+//    std::cout << "U: \n" << U << std::endl;
+//    std::cout << "Sig: \n" << Sig << std::endl;
+//    std::cout << "V: \n" << V << std::endl;
+
+    // Find the 4 candidate relative poses (based on SVD)
+    // Initialise W and Z matrices for R and t calculation
+    Matrix<double> W_matrix(3, 3, 0.0);
+    W_matrix.set_row({0, -1, 0}, 0);
+    W_matrix.set_row({1, 0, 0}, 1);
+    W_matrix.set_row({0, 0, 1}, 2);
+    std::cout << "W: \n" << W_matrix << std::endl;
+
+    Matrix<double> Z_matrix(3, 3, 0.0);
+    Z_matrix.set_row({0, 1, 0}, 0);
+    Z_matrix.set_row({-1, 0, 0}, 1);
+    Z_matrix.set_row({0, 0, 0}, 2);
+    std::cout << "Z: \n" << Z_matrix << std::endl;
+
+    // R_1 = UWV^(T) AND R_2 = UW^(T)V^(T)
+    Matrix<double> R_1 (U.cols(), U.cols() , 0.0);
+    Matrix<double> R_2 (U.cols(), U.cols() , 0.0);
+    R_1 = (U * W_matrix * transpose(V) * determinant(U * W_matrix * transpose(V)));
+    R_2 = (U * transpose(W_matrix) * transpose(V) * determinant(U * transpose(W_matrix) * transpose(V)));
+
+    // [t]_X = UZU^(T), t = ±u_3
+    std::vector<double> t_1 = U.get_column(U.cols() - 1);
+    std::vector<double> t_2 = U.get_column(U.cols() - 1) * (-1);
+
+    std::cout << "First solution Rotation Matrix, R: \n" << R_1 << std::endl;
+    std::cout << "Second solution Rotation Matrix, R: \n" << R_2 << std::endl;
+    std::cout << "First solution Translation vector, t: \n" << t_1 << std::endl;
+    std::cout << "Second solution Translation vector, t:: \n" << t_2 << std::endl;
+
+    // TODO: Determinants of both R's results in -1, when they should be 1.
+    //  Fixed this by using determinant in R_1 and R_2 calculations, but not sure if this is the correct method.
+    std::cout << "determinant R_1: \n" << determinant(R_1) << std::endl;
+    std::cout << "determinant R_2: \n" << determinant(R_2) << std::endl;
+
+
 
     // TODO: Reconstruct 3D points. The main task is
     //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
