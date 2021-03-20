@@ -194,6 +194,31 @@ Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, 
     return F;
 }
 
+Matrix<double> computeProjection(mat3 K, mat3 &R, vec3 &t) {
+    // COMPUTEPROJECTION
+    // Takes
+    //  - the 3x3 intrinsic parameters matrix
+    //  - the 3x3 extrinsic rotation matrix
+    //  - the 3x1 extrinsic translation vector
+    // Outputs:
+    //  - Projection Matrix
+
+    // Initialize a 3x4 Matrix
+    mat34 Rt(0.0f);
+
+    // Fill Matrix with columns from R and t
+    size_t numColsR = R.num_columns();
+    for (size_t i = 0; i < numColsR; ++i) {
+        Rt.set_col(i, R.col(i));
+    }
+    Rt.set_col(numColsR, t);
+
+    // Calculate Projection Matrix
+    Matrix<double> P = to_Matrix(K*Rt);
+
+    return P;
+}
+
 /**
  * TODO: Finish this function for reconstructing 3D geometry from corresponding image points.
  * @return True on success, otherwise false. On success, the reconstructed 3D points must be written to 'points_3d'.
@@ -298,7 +323,7 @@ bool Triangulation::triangulation(
         std::cout << "Input Validation FAIL: The input files are not the same size" << std::endl;
         return false;
     }
-    else if (points_0.size() < 8 or points_1.size() < 8)
+    else if (points_0.size() < 8 || points_1.size() < 8)
     {
         // Less than 8 points
         std::cout << "Input Validation FAIL: The input contains less than 8 points" << std::endl;
@@ -390,6 +415,16 @@ bool Triangulation::triangulation(
     std::cout << "determinant R_2: \n" << determinant(R_2) << std::endl;
 
 
+    // PART 3 -- DMITRI
+
+    // Intrinsic Parameter Matrix K:
+    //Matrix<double> K;
+   // K.set_column({fx, 0, 0}, 0);
+   // K.set_column({fx, 0, 0}, 1);
+   // K.set_column({cx, cy, 0}, 2);
+
+    // Compute Projection
+    Matrix<double> P = computeProjection(to_mat3(K), R, t);
 
     // TODO: Reconstruct 3D points. The main task is
     //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
