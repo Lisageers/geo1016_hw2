@@ -54,6 +54,17 @@ Matrix<double> to_Matrix(const mat &M) {
     return result;
 }
 
+
+/// convert a 3 by 1 vector of type 'std::vector<double>' to vec3
+vec3 to_vec3(std::vector<double> &V) {
+    vec3 result;
+    for (int i = 0; i < 3; ++i) {
+        result[i] = V[i];
+    }
+    return result;
+}
+
+
 vec2 find_centroid(const std::vector<vec3> &points)
 {
     // initialise
@@ -194,7 +205,7 @@ Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, 
     return F;
 }
 
-Matrix<double> computeProjection(mat3 K, mat3 &R, vec3 &t) {
+mat34 computeProjection(mat3 K, mat3 &R, vec3 &t) {
     // COMPUTEPROJECTION
     // Takes
     //  - the 3x3 intrinsic parameters matrix
@@ -204,19 +215,46 @@ Matrix<double> computeProjection(mat3 K, mat3 &R, vec3 &t) {
     //  - Projection Matrix
 
     // Initialize a 3x4 Matrix
-    mat34 Rt(0.0f);
+    mat34 Rt(0.0);
 
     // Fill Matrix with columns from R and t
-    size_t numColsR = R.num_columns();
-    for (size_t i = 0; i < numColsR; ++i) {
+    for (size_t i = 0; i < R.num_columns(); ++i) {
         Rt.set_col(i, R.col(i));
     }
-    Rt.set_col(numColsR, t);
+    Rt.set_col(R.num_columns(), t);
 
     // Calculate Projection Matrix
-    Matrix<double> P = to_Matrix(K*Rt);
+    mat34 M(0.0);
+    M = K * Rt;
+
+    return M;
+}
+
+vec3 triangulate(vec3 pt0, vec3 pt1, mat34 M0, mat34 M1) {
+    /* TRIANGULATE
+     * Triangulate a pair of points (pt0 and pt1) with the help of the projection matrices (M0 and M1)
+     * Output: 3d coordinates of triangulated point
+     */
+
+    // Matrix A
+    mat4 A(0.0);
+    A.set_row(0, vec4(pt0.x * M0.row(2) - M0.row(0)));
+    A.set_row(1, vec4(pt0.y * M0.row(2) - M0.row(1)));
+    A.set_row(2, vec4(pt1.x * M1.row(2) - M1.row(0)));
+    A.set_row(3, vec4(pt1.y * M1.row(2) - M1.row(1)));
+
+    // Solution based on linear method
+    // Compute SVD decomposition and construct point P
+    Matrix<double> U(4, 4, 0.0), S(4, 4, 0.0), V(4, 4, 0.0);
+    svd_decompose(to_Matrix(A), U, S, V);
+
+    vec3 P = vec3(V(0,3),
+                  V(1,3),
+                  V(2,3))
+                          / V(3,3);
 
     return P;
+
 }
 
 /**
@@ -249,6 +287,7 @@ bool Triangulation::triangulation(
     /// ----------- fixed-size matrices
 
     /// define a 3 by 4 matrix M (you can also define 3 by 4 matrix similarly)
+    /*
     mat34 M(1.0f);  /// entries on the diagonal are initialized to be 1 and others to be 0.
 
     /// set the first row of M
@@ -311,7 +350,7 @@ bool Triangulation::triangulation(
 
     /// get the last column of a matrix
     std::vector<double> last_column = W.get_column(W.cols() - 1);
-
+*/
     // TODO: delete all above demo code in the final submission
 
     //--------------------------------------------------------------------------------------------------------------
@@ -417,14 +456,35 @@ bool Triangulation::triangulation(
 
     // PART 3 -- DMITRI
 
-    // Intrinsic Parameter Matrix K:
-    //Matrix<double> K;
-   // K.set_column({fx, 0, 0}, 0);
-   // K.set_column({fx, 0, 0}, 1);
-   // K.set_column({cx, cy, 0}, 2);
+    // Convert the matrices
+    R = to_mat3(R_2);
+    t = to_vec3(t_2);
 
-    // Compute Projection
-    Matrix<double> P = computeProjection(to_mat3(K), R, t);
+    // Calculate projection matrix M for camera 0
+    // M0 = K [I | 0]
+    mat3 R0 = {1,0,0,
+               0,1,0,
+               0,0,1};
+    vec3 t0 = vec3(0.0f);
+    mat34 M0 = computeProjection(to_mat3(K), R0, t0);
+    std::cout << M0 << std::endl;
+
+    // Calculate projection matrix for camera 1
+    // M1 = K [R | t]
+    mat34 M1 = computeProjection(to_mat3(K), R, t);
+    std::cout << M1 << std::endl;
+
+    // Reconstruct 3D points by triangulating the pairs
+    for (size_t i = 0; i < points_0.size(); ++i) {
+        // For every pair:
+
+        vec3 pt3d;
+        pt3d = triangulate(points_0[i], points_1[i], M0, M1);
+
+        std::cout << "Point " << i << ": \t" << pt3d << std::endl;
+
+        points_3d.push_back(pt3d);
+    }
 
     // TODO: Reconstruct 3D points. The main task is
     //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
