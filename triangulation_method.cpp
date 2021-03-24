@@ -563,9 +563,9 @@ bool Triangulation::triangulation(
     // relative position between the two cameras
 
     // TODO: Uncomment once issues with mat3 versus matrix double are fixed
-    std::tuple<mat3, vec3> correct_pose = best_relative_pose (R_1, R_2, t_1, t_2, matrix_K, points_0, points_1);
-    R = std::get<0>(correct_pose);
-    t = std::get<1>(correct_pose);
+//    std::tuple<mat3, vec3> correct_pose = best_relative_pose (R_1, R_2, t_1, t_2, matrix_K, points_0, points_1);
+//    R = std::get<0>(correct_pose);
+//    t = std::get<1>(correct_pose);
 
 
 
