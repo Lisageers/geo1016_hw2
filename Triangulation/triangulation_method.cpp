@@ -458,19 +458,16 @@ bool Triangulation::triangulation(
     // implementation starts ...
 
     // check if the input is valid
-    if (points_0.size() != points_1.size())
-    {
+    if (points_0.size() != points_1.size()) {
         std::cout << "Input Validation FAIL: The input files are not the same size" << std::endl;
         return false;
     }
-    else if (points_0.size() < 8 || points_1.size() < 8)
-    {
+    else if (points_0.size() < 8 || points_1.size() < 8) {
         // Less than 8 points
         std::cout << "Input Validation FAIL: The input contains less than 8 points" << std::endl;
         return false;
     }
-    else
-    {
+    else {
         // Everything all right
         std::cout << "Input Validation PASS." << std::endl;
     }
@@ -487,38 +484,42 @@ bool Triangulation::triangulation(
     // PART 2 – XENIA
 
     // Essential matrix E = transpose(K) * F * K. where K is the intrinsic matrix
-    // Define K matrix. Requires first defining skew?
-    // For now, I have ignored skew, and replaced it with 0, as it does not seem to be relevant
+    // For now, I have replaced skew with 0, as there does not seem to be any relevant skew
     // K = | fx skew  cx |
     //     | 0   fy   cy |
     //     | 0   0     1 |
     // Define array for the values to be inserted into Matrix K
-    std::vector<double> K_array = {fx, 0, cx, 0, fy, cy, 0, 0, 1}; // fx, fy, cx, cy are the focal lengths and principal points of both cameras
+    // fx, fy, cx, cy are the focal lengths and principal points of both cameras (the same for both), can be edited in triangulation.cpp
+    std::vector<double> K_array = {fx, 0, cx, 0, fy, cy, 0, 0, 1};
     // Define matrix K and insert values, print matrix K
     Matrix<double> K (3, 3, K_array.data());
+
+    //// Compute matrix K's inverse, invK
+//    Matrix<double> invK (3, 3);
+//    inverse(K, invK);
+    //// Check to see if inverse is correct
+//    std::cout << "Test to see if inverse is correct, K * invK: \n" << K * invK << std::endl;
+
+    // Convert K from 3x3 matrix to mat3
     mat3 matrix_K = to_mat3(K);
     std::cout << "Camera Matrix K: \n" << K << std::endl;
 
-    //Compute matrix K's inverse, invK
-    Matrix<double> invK (3, 3);
-    inverse(K, invK);
-    mat3 matrix_invK = to_mat3(invK);
-
-//    Check to see if inverse is correct
-//    std::cout << "Test to see if inverse is correct, K * invK: \n" << K * invK << std::endl;
-
-    // Calculate E using Fundamental matrix, F, and camera matrix K and its transpose
+    //// Calculate E using Fundamental matrix, F, and camera matrix K and its transpose
     mat3 E = transpose(matrix_K) * matrix_F * matrix_K;
     std::cout << "Essential Matrix E: \n" << E << std::endl;
+    // Converting Essential Matrix E from mat3 to 3x3 matrix
+    Matrix<double> original_E = to_Matrix(E);
 
     // Calculating R and t based on performing an SVD, where E = U * Sigma * transpose(V)
     // where U and V are orthogonal 3x3 matrices, and Sigma is a 3x3 diagonal matrix, diag(1,1,0)
     Matrix<double> U (3, 3, 0.0);
     Matrix<double> Sig (3, 3, 0.0);
     Matrix<double> V (3, 3, 0.0);
-    Matrix<double> original_E = to_Matrix(E);
+//    std::cout << "U: \n" << U << std::endl;
+//    std::cout << "Sig: \n" << Sig << std::endl;
+//    std::cout << "V: \n" << V << std::endl;
 
-    // SVD of matrix E:
+    //// SVD of matrix E:
     svd_decompose(original_E, U, Sig, V);
 //    std::cout << "U: \n" << U << std::endl;
 //    std::cout << "Sig: \n" << Sig << std::endl;
@@ -531,7 +532,7 @@ bool Triangulation::triangulation(
     W.set_row({1, 0, 0}, 1);
     W.set_row({0, 0, 1}, 2);
     mat3 W_matrix = to_mat3(W);
-    std::cout << "W matrix: \n" << W_matrix << std::endl;
+//    std::cout << "W matrix: \n" << W_matrix << std::endl;
 
     Matrix<double> Z (3, 3, 0.0);
     Z.set_row({0, 1, 0}, 0);
@@ -542,8 +543,10 @@ bool Triangulation::triangulation(
 
     mat3 matrix_U = to_mat3(U);
     mat3 matrix_V = to_mat3(V);
+//    std::cout << "mat3 U: \n" << matrix_U << std::endl;
+//    std::cout << "mat3 V: \n" << matrix_V << std::endl;
 
-    // R_1 = UWV^(T) AND R_2 = UW^(T)V^(T)
+    // R_1 = UWV^(T)    AND     R_2 = UW^(T)V^(T)
     mat3 R_1 = matrix_U * W_matrix * transpose(matrix_V) * (-1);
     mat3 R_2 = matrix_U * transpose(W_matrix) * transpose(matrix_V) * (-1);
 
@@ -556,12 +559,9 @@ bool Triangulation::triangulation(
     std::cout << "First solution Translation vector, t: \n" << t_1 << std::endl;
     std::cout << "Second solution Translation vector, t: \n" << t_2 << std::endl;
 
-//     Check: Determinant of R's ought to be 1
-    std::cout << "determinant R_1: \n" << determinant(R_1) << std::endl;
-    std::cout << "determinant R_2: \n" << determinant(R_2) << std::endl;
-
-    // Determining correct relative pose (4 options) by finding which R and t combination has the most points in front of the camera
-    // relative position between the two cameras
+    // Checkpoint: Determinant of R's ought to be 1. When calculating mat3 R_1 & R_2, multiplied by (-1) to ensure this
+//    std::cout << "determinant R_1: \n" << determinant(R_1) << std::endl;
+//    std::cout << "determinant R_2: \n" << determinant(R_2) << std::endl;
 
     std::tuple<mat3, vec3> correct_pose = best_relative_pose (R_1, R_2, t_1, t_2, matrix_K, points_0, points_1);
     R = std::get<0>(correct_pose);
