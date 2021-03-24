@@ -101,8 +101,7 @@ float compute_scaling_factor(const std::vector<vec3> &points, vec2 centroid)
     return scaling_factor;
 }
 
-Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, const std::vector<vec3> &points_1)
-{
+Matrix<double> fundamental_matrix_estimation(const std::vector<vec3> &points_0, const std::vector<vec3> &points_1) {
     // initialise
     Matrix<double> Transformation_p0(3, 3, 0.0);
     Matrix<double> Transformation_p1(3, 3, 0.0);
@@ -479,6 +478,7 @@ bool Triangulation::triangulation(
 
     // estimate the fundamental matrix F
     Matrix<double> F = fundamental_matrix_estimation(points_0, points_1);
+    mat3 matrix_F = to_mat3(F);
 
     // TODO: Estimate relative pose of two views. This can be subdivided into
     //      - estimate the fundamental matrix F;
@@ -495,104 +495,112 @@ bool Triangulation::triangulation(
     std::vector<double> K_array = {fx, 0, cx, 0, fy, cy, 0, 0, 1}; // fx, fy, cx, cy are the focal lengths and principal points of both cameras
     // Define matrix K and insert values, print matrix K
     Matrix<double> K (3, 3, K_array.data());
+    mat3 matrix_K = to_mat3(K);
     std::cout << "Camera Matrix K: \n" << K << std::endl;
 
     //Compute matrix K's inverse, invK
     Matrix<double> invK (3, 3);
     inverse(K, invK);
+    mat3 matrix_invK = to_mat3(invK);
 
 //    Check to see if inverse is correct
 //    std::cout << "Test to see if inverse is correct, K * invK: \n" << K * invK << std::endl;
 
-    // TODO: E should probably be mat3 instead of matrix double? Does this matter/affect anything?
     // Calculate E using Fundamental matrix, F, and camera matrix K and its transpose
-    Matrix<double> E = transpose(K) * F * K;
+    mat3 E = transpose(matrix_K) * matrix_F * matrix_K;
     std::cout << "Essential Matrix E: \n" << E << std::endl;
 
     // Calculating R and t based on performing an SVD, where E = U * Sigma * transpose(V)
     // where U and V are orthogonal 3x3 matrices, and Sigma is a 3x3 diagonal matrix, diag(1,1,0)
-    Matrix<double> U (E.rows(), E.rows(), 0.0);
-    Matrix<double> Sig (E.rows(), E.rows(), 0.0);
-    Matrix<double> V (E.rows(), E.rows(), 0.0);
+    Matrix<double> U (3, 3, 0.0);
+    Matrix<double> Sig (3, 3, 0.0);
+    Matrix<double> V (3, 3, 0.0);
+    Matrix<double> original_E = to_Matrix(E);
+
     // SVD of matrix E:
-    svd_decompose(E, U, Sig, V);
+    svd_decompose(original_E, U, Sig, V);
 //    std::cout << "U: \n" << U << std::endl;
 //    std::cout << "Sig: \n" << Sig << std::endl;
 //    std::cout << "V: \n" << V << std::endl;
 
     // Find the 4 candidate relative poses (based on SVD)
     // Initialise W and Z matrices for R and t calculation
-    Matrix<double> W_matrix (3, 3, 0.0);
-    W_matrix.set_row({0, -1, 0}, 0);
-    W_matrix.set_row({1, 0, 0}, 1);
-    W_matrix.set_row({0, 0, 1}, 2);
+    Matrix<double> W (3, 3, 0.0);
+    W.set_row({0, -1, 0}, 0);
+    W.set_row({1, 0, 0}, 1);
+    W.set_row({0, 0, 1}, 2);
+    mat3 W_matrix = to_mat3(W);
     std::cout << "W matrix: \n" << W_matrix << std::endl;
 
-    Matrix<double> Z_matrix (3, 3, 0.0);
-    Z_matrix.set_row({0, 1, 0}, 0);
-    Z_matrix.set_row({-1, 0, 0}, 1);
-    Z_matrix.set_row({0, 0, 0}, 2);
+    Matrix<double> Z (3, 3, 0.0);
+    Z.set_row({0, 1, 0}, 0);
+    Z.set_row({-1, 0, 0}, 1);
+    Z.set_row({0, 0, 0}, 2);
+    mat3 Z_matrix = to_mat3(Z);
     std::cout << "Z matrix: \n" << Z_matrix << std::endl;
 
+    mat3 matrix_U = to_mat3(U);
+    mat3 matrix_V = to_mat3(V);
+
     // R_1 = UWV^(T) AND R_2 = UW^(T)V^(T)
-    Matrix<double> R_1 (U.cols(), U.cols() , 0.0);
-    Matrix<double> R_2 (U.cols(), U.cols() , 0.0);
-    R_1 = (U * W_matrix * transpose(V) * determinant(U * W_matrix * transpose(V)));
-    R_2 = (U * transpose(W_matrix) * transpose(V) * determinant(U * transpose(W_matrix) * transpose(V)));
+    mat3 R_1 = matrix_U * W_matrix * transpose(matrix_V) * (-1);
+    mat3 R_2 = matrix_U * transpose(W_matrix) * transpose(matrix_V) * (-1);
 
     // [t]_X = UZU^(T), t = ±u_3
-    std::vector<double> t_1 = U.get_column(U.cols() - 1);
-    std::vector<double> t_2 = U.get_column(U.cols() - 1) * (-1);
+    vec3 t_1 = matrix_U.col(2);
+    vec3 t_2 = matrix_U.col(2) * (-1);
 
     std::cout << "First solution Rotation Matrix, R: \n" << R_1 << std::endl;
     std::cout << "Second solution Rotation Matrix, R: \n" << R_2 << std::endl;
     std::cout << "First solution Translation vector, t: \n" << t_1 << std::endl;
     std::cout << "Second solution Translation vector, t: \n" << t_2 << std::endl;
 
-    // Check: Determinant of R's ought to be 1
-//    std::cout << "determinant R_1: \n" << determinant(R_1) << std::endl;
-//    std::cout << "determinant R_2: \n" << determinant(R_2) << std::endl;
+//     Check: Determinant of R's ought to be 1
+    std::cout << "determinant R_1: \n" << determinant(R_1) << std::endl;
+    std::cout << "determinant R_2: \n" << determinant(R_2) << std::endl;
 
     // Determining correct relative pose (4 options) by finding which R and t combination has the most points in front of the camera
     // relative position between the two cameras
 
     // TODO: Uncomment once issues with mat3 versus matrix double are fixed
-//    std::tuple<mat3, vec3> correct_pose = best_relative_pose (R_1, R_2, t_1, t_2, K, points_0, points_1);
-//    R = std::get<0>(correct_pose);
-//    t = std::get<1>(correct_pose);
+    std::tuple<mat3, vec3> correct_pose = best_relative_pose (R_1, R_2, t_1, t_2, matrix_K, points_0, points_1);
+    R = std::get<0>(correct_pose);
+    t = std::get<1>(correct_pose);
+
+
 
 
     // PART 3 -- DMITRI
-
-    // Convert the matrices
-    R = to_mat3(R_2);
-    t = to_vec3(t_2);
-
-    // Calculate projection matrix M for camera 0
-    // M0 = K [I | 0]
-    mat3 R0 = {1,0,0,
-               0,1,0,
-               0,0,1};
-    vec3 t0 = vec3(0.0f);
-    mat34 M0 = computeProjection(to_mat3(K), R0, t0);
-    std::cout << M0 << std::endl;
-
-    // Calculate projection matrix for camera 1
-    // M1 = K [R | t]
-    mat34 M1 = computeProjection(to_mat3(K), R, t);
-    std::cout << M1 << std::endl;
-
-    // Reconstruct 3D points by triangulating the pairs
-    for (size_t i = 0; i < points_0.size(); ++i) {
-        // For every pair:
-
-        vec3 pt3d;
-        pt3d = triangulate(points_0[i], points_1[i], M0, M1);
-
-        std::cout << "Point " << i << ": \t" << pt3d << std::endl;
-
-        points_3d.push_back(pt3d);
-    }
+    // TODO: Uncomment once mat3 issues fixed
+//    // Convert the matrices
+//    R = to_mat3(R_2);
+//    t = to_vec3(t_2);
+//
+//    // Calculate projection matrix M for camera 0
+//    // M0 = K [I | 0]
+//    mat3 R0 = {1,0,0,
+//               0,1,0,
+//               0,0,1};
+//    vec3 t0 = vec3(0.0f);
+//    mat34 M0 = computeProjection(to_mat3(K), R0, t0);
+//    std::cout << M0 << std::endl;
+//
+//    // Calculate projection matrix for camera 1
+//    // M1 = K [R | t]
+//    mat34 M1 = computeProjection(to_mat3(K), R, t);
+//    std::cout << M1 << std::endl;
+//
+//    // Reconstruct 3D points by triangulating the pairs
+//    for (size_t i = 0; i < points_0.size(); ++i) {
+//        // For every pair:
+//
+//        vec3 pt3d;
+//        pt3d = triangulate(points_0[i], points_1[i], M0, M1);
+//
+//        std::cout << "Point " << i << ": \t" << pt3d << std::endl;
+//
+//        points_3d.push_back(pt3d);
+//    }
 
     // TODO: Reconstruct 3D points. The main task is
     //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
