@@ -113,8 +113,8 @@ bool Triangulation::key_press_event(int key, int modifiers) {
             return false;
         }
 
-        const float fx = 1010;
-        const float fy = 1010;
+        const float fx = 1000;
+        const float fy = 1000;
         const float cx = 320;
         const float cy = 240;
 
