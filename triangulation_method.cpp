@@ -255,57 +255,57 @@ vec3 triangulate(vec3 pt0, vec3 pt1, mat34 M0, mat34 M1) {
     return P;
 }
 
-// TODO: Uncomment once issues with mat3 are resolved
-//
-//vec3 triangulate_step2 (vec3 pt0,
-//                       vec3 pt1,
-//                       mat3 K,
-//                       mat3 R,
-//                       vec3 t) {
-//    // Triangulate a pair of points (pt0 and pt1) with projection matrices (M0 and M1), using linear method
-//
-//    mat34 M0 (1.0f);
-//    M0 (2,3) = 0;
-//    M0 = (K * M0);
-//
-//    mat34 M1(1.0f);
-//    for (int i = 0; i < R.num_rows(); ++i) {
-//        vec3 row = R.row(i);
-//        M1.set_row(i, vec4(row[0], row[1], row[2], 0.0));
-//    }
-//
-//    M1.set_col(3, t);
-//    M1 = K * M1;
-//
-//    Matrix<double> A(4, 4, 0.0);
-//    vec4 elem00 = pt0.x * M0.row(2) - M0.row(0);
-//    vec4 elem10 = pt0.y * M0.row(2) - M0.row(1);
-//    vec4 elem20 = pt1.x * M1.row(2) - M1.row(0);
-//    vec4 elem30 = pt1.y * M1.row(2) - M1.row(1);
-//
-//    for (int i = 0; i < 4; ++i) {
-//        A(0,i) = elem00[i];
-//        A(1,i) = elem10[i];
-//        A(2,i) = elem20[i];
-//        A(3,i) = elem30[i];
-//    }
-//
-//    Matrix<double> U (A.rows(), A.rows(), 0.0);
-//    Matrix<double> S (A.rows(), A.cols(), 0.0);
-//    Matrix<double> V(A.cols(), A.cols(), 0.0);
-//
-//    svd_decompose(A, U, S, V);
-//
-//    Matrix<double> P(4, 1, 0.0);
-//    for (int i = 0; i < 4; ++i) {
-//        P(i, 0) = V (i, A.cols() - 1);
-//    }
-//
-//    Matrix<double> normalised = (P / P(3, 0));
-//    vec3 point_3d = {float (normalised(0, 0)), float (normalised(1, 0)), float (normalised(2, 0))};
-//
-//    return point_3d;
-//}
+
+
+vec3 triangulate_step2 (vec3 pt0,
+                       vec3 pt1,
+                       mat3 K,
+                       mat3 R,
+                       vec3 t) {
+    // Triangulate a pair of points (pt0 and pt1) with projection matrices (M0 and M1), using linear method
+
+    mat34 M0 (1.0f);
+    M0 (2,3) = 0;
+    M0 = (K * M0);
+
+    mat34 M1(1.0f);
+    for (int i = 0; i < R.num_rows(); ++i) {
+        vec3 row = R.row(i);
+        M1.set_row(i, vec4(row[0], row[1], row[2], 0.0));
+    }
+
+    M1.set_col(3, t);
+    M1 = K * M1;
+
+    Matrix<double> A(4, 4, 0.0);
+    vec4 elem00 = pt0.x * M0.row(2) - M0.row(0);
+    vec4 elem10 = pt0.y * M0.row(2) - M0.row(1);
+    vec4 elem20 = pt1.x * M1.row(2) - M1.row(0);
+    vec4 elem30 = pt1.y * M1.row(2) - M1.row(1);
+
+    for (int i = 0; i < 4; ++i) {
+        A(0,i) = elem00[i];
+        A(1,i) = elem10[i];
+        A(2,i) = elem20[i];
+        A(3,i) = elem30[i];
+    }
+
+    Matrix<double> U (A.rows(), A.rows(), 0.0);
+    Matrix<double> S (A.rows(), A.cols(), 0.0);
+    Matrix<double> V(A.cols(), A.cols(), 0.0);
+
+    svd_decompose(A, U, S, V);
+
+    Matrix<double> P(4, 1, 0.0);
+    for (int i = 0; i < 4; ++i) {
+        P(i, 0) = V (i, A.cols() - 1);
+    }
+
+    Matrix<double> normalised = (P / P(3, 0));
+    vec3 point_3d = {float (normalised(0, 0)), float (normalised(1, 0)), float (normalised(2, 0))};
+
+    return point_3d;
+}
 
 
 std::tuple<mat3, vec3> best_relative_pose (mat3 R_solution1,
@@ -313,8 +313,8 @@ std::tuple<mat3, vec3> best_relative_pose (mat3 R_solution1,
                                            vec3 t_solution1,
                                            vec3 t_solution2,
                                            mat3 matrix_K,
-                                           vec3 pts0,
-                                           vec3 pts1) {
+                                           std::vector<vec3> pts0,
+                                           std::vector<vec3> pts1) {
 
     int max_pts_infront = 0;
     mat3 R_final;
@@ -341,21 +341,20 @@ std::tuple<mat3, vec3> best_relative_pose (mat3 R_solution1,
             next_t = t_solution2;
         }
 
-        // TODO: Uncomment once issues with mat3 are resolved
-//        for (int i = 0; i < pts0.size(); ++i) {
-//            vec3 first_pt = triangulate_step2 (pts0[i], pts1[i], matrix_K, next_R, next_t);
-//            vec3 second_pt = (next_R * first_pt) + next_t;
-//            if (first_pt.z > 0 && second_pt.z > 0) {
-//                num_pts_infront ++;
-//            }
-//        }
-//        if (num_pts_infront > max_pts_infront){
-//            max_pts_infront = num_pts_infront;
-//            R_final = next_R;
-//            t_final = next_t;
-//        }
+        for (int i = 0; i < pts0.size(); ++i) {
+            vec3 first_pt = triangulate_step2 (pts0[i], pts1[i], matrix_K, next_R, next_t);
+            vec3 second_pt = (next_R * first_pt) + next_t;
+            if (first_pt.z > 0 && second_pt.z > 0) {
+                num_pts_infront ++;
+            }
+        }
+        if (num_pts_infront > max_pts_infront){
+            max_pts_infront = num_pts_infront;
+            R_final = next_R;
+            t_final = next_t;
+        }
     }
-//    return std::make_tuple(R_final, t_final);
+    return std::make_tuple(R_final, t_final);
 }
 
 
@@ -562,45 +561,45 @@ bool Triangulation::triangulation(
     // Determining correct relative pose (4 options) by finding which R and t combination has the most points in front of the camera
     // relative position between the two cameras
 
-    // TODO: Uncomment once issues with mat3 versus matrix double are fixed
-//    std::tuple<mat3, vec3> correct_pose = best_relative_pose (R_1, R_2, t_1, t_2, matrix_K, points_0, points_1);
-//    R = std::get<0>(correct_pose);
-//    t = std::get<1>(correct_pose);
+    std::tuple<mat3, vec3> correct_pose = best_relative_pose (R_1, R_2, t_1, t_2, matrix_K, points_0, points_1);
+    R = std::get<0>(correct_pose);
+    t = std::get<1>(correct_pose);
 
-
+    std::cout << "Correct Relative Pose, R: \n" << R << std::endl;
+    std::cout << "Correct Relative Pose, t: \n" << t << std::endl;
 
 
     // PART 3 -- DMITRI
-    // TODO: Uncomment once mat3 issues fixed
-//    // Convert the matrices
+
+    // Convert the matrices
 //    R = to_mat3(R_2);
 //    t = to_vec3(t_2);
-//
-//    // Calculate projection matrix M for camera 0
-//    // M0 = K [I | 0]
-//    mat3 R0 = {1,0,0,
-//               0,1,0,
-//               0,0,1};
-//    vec3 t0 = vec3(0.0f);
-//    mat34 M0 = computeProjection(to_mat3(K), R0, t0);
-//    std::cout << M0 << std::endl;
-//
-//    // Calculate projection matrix for camera 1
-//    // M1 = K [R | t]
-//    mat34 M1 = computeProjection(to_mat3(K), R, t);
-//    std::cout << M1 << std::endl;
-//
-//    // Reconstruct 3D points by triangulating the pairs
-//    for (size_t i = 0; i < points_0.size(); ++i) {
-//        // For every pair:
-//
-//        vec3 pt3d;
-//        pt3d = triangulate(points_0[i], points_1[i], M0, M1);
-//
-//        std::cout << "Point " << i << ": \t" << pt3d << std::endl;
-//
-//        points_3d.push_back(pt3d);
-//    }
+
+    // Calculate projection matrix M for camera 0
+    // M0 = K [I | 0]
+    mat3 R0 = {1,0,0,
+               0,1,0,
+               0,0,1};
+    vec3 t0 = vec3(0.0f);
+    mat34 M0 = computeProjection(to_mat3(K), R0, t0);
+    std::cout << M0 << std::endl;
+
+    // Calculate projection matrix for camera 1
+    // M1 = K [R | t]
+    mat34 M1 = computeProjection(to_mat3(K), R, t);
+    std::cout << M1 << std::endl;
+
+    // Reconstruct 3D points by triangulating the pairs
+    for (size_t i = 0; i < points_0.size(); ++i) {
+        // For every pair:
+
+        vec3 pt3d;
+        pt3d = triangulate(points_0[i], points_1[i], M0, M1);
+
+        std::cout << "Point " << i << ": \t" << pt3d << std::endl;
+
+        points_3d.push_back(pt3d);
+    }
 
     // TODO: Reconstruct 3D points. The main task is
     //      - triangulate a pair of image points (i.e., compute the 3D coordinates for each corresponding point pair)
