@@ -113,13 +113,11 @@ bool Triangulation::key_press_event(int key, int modifiers) {
             return false;
         }
 
-        const float fx = 1000;  /// TODO: modify fx to see how it affects the reconstruction (e.g., 970, 1010, 1030, 1050)
-        const float fy = 1000;  /// TODO: modify fy to see how it affects the reconstruction
-        const float cx = 320;   /// TODO: modify cx to see how it affects the reconstruction (e.g., 200, 250, 350, 400)
-        const float cy = 240;   /// TODO: modify cy to see how it affects the reconstruction
-        LOG(ERROR) << "TODO: tune the parameters (above line " << __LINE__ << " in file 'triangulation.cpp') and see how"
-                   << "\n\terrors in camera intrinsic parameters affect the final reconstruction. Please include your findings"
-                   << "\n\tand insights in the report";
+        const float fx = 1010;
+        const float fy = 1010;
+        const float cx = 320;
+        const float cy = 240;
+
         std::vector<vec3> points_3d;
         mat3 R;
         vec3 t;
